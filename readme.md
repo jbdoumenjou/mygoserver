@@ -7,6 +7,8 @@ that adds [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) headers
 
 Play with stateful handlers.
 
+Play with [Chi](https://go-chi.io/#/README) router.
+
 
 
 

@@ -2,22 +2,29 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 )
 
 func main() {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/healthz", healthzHandler)
-
-	appHandler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
+	router := chi.NewRouter()
 	apiMetrics := &apiConfig{}
-	mux.Handle("/app/", apiMetrics.middlewareMetricsInc(appHandler))
-	mux.HandleFunc("/metrics", apiMetrics.metricsHandler)
-	mux.HandleFunc("/reset", apiMetrics.resetHandler)
 
-	corsmux := middlewareCors(mux)
+	// Serve static files from the . directory
+	appHandler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
+	router.Get("/app/assets/", apiMetrics.middlewareMetricsInc(appHandler))
+	router.Get("/app", apiMetrics.middlewareMetricsInc(appHandler))
+
+	// API routes
+	apiRouter := chi.NewRouter()
+	apiRouter.Get("/healthz", healthzHandler)
+	apiRouter.Get("/metrics", apiMetrics.metricsHandler)
+	apiRouter.Get("/reset", apiMetrics.resetHandler)
+
+	router.Mount("/api", apiRouter)
+
+	corsmux := middlewareCors(router)
 
 	log.Fatal(NewWebServer(":8080", corsmux).Start())
 }
@@ -57,10 +64,10 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, _ *http.Request) {
 	cfg.fileserverHits = 0
 }
 
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits++
 
 		next.ServeHTTP(w, r)
-	})
+	}
 }
