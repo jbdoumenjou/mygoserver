@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"log"
@@ -27,6 +28,7 @@ func main() {
 	apiRouter.Get("/healthz", healthzHandler)
 	apiRouter.Get("/metrics", apiMetrics.metricsHandler)
 	apiRouter.Get("/reset", apiMetrics.resetHandler)
+	apiRouter.Post("/validate_chirp", validateChirpHandler)
 
 	router.Mount("/api", apiRouter)
 
@@ -35,10 +37,61 @@ func main() {
 }
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("serving %s\n", r.Host+r.RequestURI)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
+
+	type parameters struct {
+		Body string `json:"body"`
+	}
+
+	type resp struct {
+		Valid bool   `json:"valid,omitempty"`
+		Error string `json:"error,omitempty"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		// an error will be thrown if the JSON is invalid or has the wrong types
+		// any missing fields will simply have their values in the struct set to their zero value
+		log.Printf("Something went wrong: %s", err)
+		content, err := json.Marshal(resp{Error: err.Error()})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(content)
+
+		return
+	}
+
+	if len(params.Body) > 140 {
+		w.WriteHeader(http.StatusBadRequest)
+		content, err := json.Marshal(resp{Error: "Chirp is too long"})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write(content)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	content, err := json.Marshal(resp{Valid: true})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(content)
 }
 
 func middlewareCors(next http.Handler) http.Handler {
