@@ -3,36 +3,44 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
 )
 
-func startWebServer() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		http.NotFound(w, req)
-	})
-	corsMux := middlewareCors(mux)
+type WebServer struct {
+	*http.Server
+}
 
-	srv := http.Server{Addr: ":8080", Handler: corsMux}
+func NewWebServer(addr string, handler http.Handler) *WebServer {
+	return &WebServer{
+		Server: &http.Server{
+			Addr:    addr,
+			Handler: handler,
+		},
+	}
 
+}
+
+func (s *WebServer) Start() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		log.Printf("starting server on %s\n", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Printf("starting server on %s\n", s.Addr)
+		if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen and serve returned err: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
 	log.Println("got interruption signal")
-	if err := srv.Shutdown(context.TODO()); err != nil {
-		log.Printf("server shutdown returned an err: %v\n", err)
+	if err := s.Shutdown(context.TODO()); err != nil {
+		return fmt.Errorf("server shutdown returned an err: %w\n", err)
 	}
 
 	log.Println("server closed")
+	return nil
 }
