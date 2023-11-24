@@ -6,15 +6,6 @@ import (
 	"net/http"
 )
 
-type toto int
-
-func (t toto) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("serving %s\n", r.Host+r.RequestURI)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
 func main() {
 	mux := http.NewServeMux()
 
