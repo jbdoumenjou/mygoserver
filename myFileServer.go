@@ -7,7 +7,7 @@ import (
 
 func startMyFileServer() {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir("content")))
+	mux.Handle("/", http.FileServer(http.Dir(".")))
 	corsmux := middlewareCors(mux)
 
 	log.Fatal(http.ListenAndServe(":8080", corsmux))
