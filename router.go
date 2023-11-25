@@ -2,17 +2,20 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/jbdoumenjou/mygoserver/handler"
+	"github.com/jbdoumenjou/mygoserver/internal/api/chirp"
+	"github.com/jbdoumenjou/mygoserver/internal/api/cors"
+	"github.com/jbdoumenjou/mygoserver/internal/api/health"
+	"github.com/jbdoumenjou/mygoserver/internal/api/metrics"
 	"net/http"
 )
 
-func NewRouter() http.Handler {
+func NewRouter(chirpStorer chirp.ChirpStorer) http.Handler {
 	router := chi.NewRouter()
-	apiMetrics := &handler.Metrics{}
+	apiMetrics := &metrics.Metrics{}
 
 	// Admin routes
 	adminRouter := chi.NewRouter()
-	adminRouter.Get("/metrics", apiMetrics.MetricsHTMLHandler)
+	adminRouter.Get("/metrics", apiMetrics.HTMLHandler)
 
 	router.Mount("/admin", adminRouter)
 
@@ -24,12 +27,15 @@ func NewRouter() http.Handler {
 
 	// API routes
 	apiRouter := chi.NewRouter()
-	apiRouter.Get("/healthz", handler.Healthz)
-	apiRouter.Get("/metrics", apiMetrics.MetricsTextHandler)
+	apiRouter.Get("/healthz", health.Handler)
+	apiRouter.Get("/metrics", apiMetrics.TextHandler)
 	apiRouter.Get("/reset", apiMetrics.ResetHandler)
-	apiRouter.Post("/validate_chirp", handler.ValidateChirp)
+
+	chirpHandler := chirp.NewHandler(chirpStorer)
+	apiRouter.Get("/chirps", chirpHandler.List)
+	apiRouter.Post("/chirps", chirpHandler.Create)
 
 	router.Mount("/api", apiRouter)
 
-	return handler.CORSMiddleware(router)
+	return cors.Middleware(router)
 }

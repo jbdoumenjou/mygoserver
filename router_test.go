@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestAdminMetricsRoute(t *testing.T) {
-	router := NewRouter()
+	router := NewRouter(nil)
 	if router == nil {
 		t.Error("Expected router to not be nil")
 	}
@@ -82,8 +83,26 @@ func TestAdminMetricsRoute(t *testing.T) {
 
 }
 
-func TestValidateChirpRoute(t *testing.T) {
+type MockDB struct {
+	Chirps []db.Chirp
+}
 
+func NewMockDB() *MockDB {
+	return &MockDB{Chirps: []db.Chirp{}}
+}
+
+func (m *MockDB) CreateChirp(body string) (db.Chirp, error) {
+	// just need 1 as id in this test
+	chirp := db.Chirp{ID: 1, Body: body}
+	m.Chirps = append(m.Chirps, chirp)
+	return chirp, nil
+}
+
+func (m *MockDB) ListChirps() ([]db.Chirp, error) {
+	return m.Chirps, nil
+}
+
+func TestCreateChirpRoute(t *testing.T) {
 	tests := []struct {
 		name           string
 		body           map[string]string
@@ -95,8 +114,8 @@ func TestValidateChirpRoute(t *testing.T) {
 			body: map[string]string{
 				"body": "I had something interesting for breakfast",
 			},
-			wantResp:       `{"cleaned_body":"I had something interesting for breakfast"}`,
-			wantStatusCode: http.StatusOK,
+			wantResp:       `{"id":1,"body":"I had something interesting for breakfast"}`,
+			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name: "Chirp too long",
@@ -111,20 +130,20 @@ func TestValidateChirpRoute(t *testing.T) {
 				"body":  "I had something interesting for breakfast",
 				"extra": "should be ignored",
 			},
-			wantResp:       `{"cleaned_body":"I had something interesting for breakfast"}`,
-			wantStatusCode: http.StatusOK,
+			wantResp:       `{"id":1,"body":"I had something interesting for breakfast"}`,
+			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name: "Unclean chirp",
 			body: map[string]string{
 				"body": "I really need a kerfuffle to go to bed sooner, Fornax !",
 			},
-			wantResp:       `{"cleaned_body":"I really need a **** to go to bed sooner, **** !"}`,
-			wantStatusCode: http.StatusOK,
+			wantResp:       `{"id":1,"body":"I really need a **** to go to bed sooner, **** !"}`,
+			wantStatusCode: http.StatusCreated,
 		},
 	}
-
-	router := NewRouter()
+	mockDB := NewMockDB()
+	router := NewRouter(mockDB)
 	if router == nil {
 		t.Error("Expected router to not be nil")
 	}
@@ -132,13 +151,12 @@ func TestValidateChirpRoute(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			body, err := json.Marshal(test.body)
 			if err != nil {
 				t.Errorf("Expected no error, got %s", err.Error())
 			}
 
-			req := httptest.NewRequest(http.MethodPost, "/api/validate_chirp", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/chirps", bytes.NewReader(body))
 			rw := httptest.NewRecorder()
 			router.ServeHTTP(rw, req)
 

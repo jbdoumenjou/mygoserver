@@ -1,4 +1,4 @@
-package handler
+package metrics
 
 import (
 	"fmt"
@@ -9,13 +9,13 @@ type Metrics struct {
 	fileserverHits int
 }
 
-func (m *Metrics) MetricsTextHandler(w http.ResponseWriter, _ *http.Request) {
+func (m *Metrics) TextHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hits: " + fmt.Sprintf("%d", m.fileserverHits)))
 }
 
-func (m *Metrics) MetricsHTMLHandler(w http.ResponseWriter, _ *http.Request) {
+func (m *Metrics) HTMLHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	const html = `<html>
