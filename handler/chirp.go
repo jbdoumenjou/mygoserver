@@ -2,8 +2,8 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"strings"
 )
 
 type ValidateChirpParameters struct {
@@ -11,8 +11,7 @@ type ValidateChirpParameters struct {
 }
 
 type ValidateChirpResp struct {
-	Valid bool   `json:"valid,omitempty"`
-	Error string `json:"error,omitempty"`
+	CleanedBody string `json:"cleaned_body,omitempty"`
 }
 
 func ValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -22,37 +21,43 @@ func ValidateChirp(w http.ResponseWriter, r *http.Request) {
 	params := ValidateChirpParameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		// an error will be thrown if the JSON is invalid or has the wrong types
-		// any missing fields will simply have their values in the struct set to their zero value
-		log.Printf("Something went wrong: %s", err)
-		content, err := json.Marshal(ValidateChirpResp{Error: err.Error()})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(content)
-
+		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if len(params.Body) > 140 {
-		w.WriteHeader(http.StatusBadRequest)
-		content, err := json.Marshal(ValidateChirpResp{Error: "Chirp is too long"})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Write(content)
-
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	content, err := json.Marshal(ValidateChirpResp{Valid: true})
+	resp := ValidateChirpResp{CleanedBody: cleanChirp(params.Body)}
+	respondWithJSON(w, http.StatusOK, resp)
+}
+
+func cleanChirp(body string) string {
+	splitBody := strings.Split(body, " ")
+	for i, word := range splitBody {
+		switch strings.ToLower(word) {
+		case "kerfuffle", "sharbert", "fornax":
+			splitBody[i] = "****"
+		}
+	}
+
+	return strings.Join(splitBody, " ")
+}
+
+func respondWithError(w http.ResponseWriter, code int, msg string) {
+	respondWithJSON(w, code, map[string]string{"error": msg})
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload any) {
+	content, err := json.Marshal(payload)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	w.Write(content)
 }
