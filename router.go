@@ -33,6 +33,7 @@ func NewRouter(chirpStorer chirp.ChirpStorer) http.Handler {
 
 	chirpHandler := chirp.NewHandler(chirpStorer)
 	apiRouter.Get("/chirps", chirpHandler.List)
+	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
 	apiRouter.Post("/chirps", chirpHandler.Create)
 
 	router.Mount("/api", apiRouter)

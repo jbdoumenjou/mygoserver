@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 	"net/http/httptest"
@@ -102,6 +103,15 @@ func (m *MockDB) ListChirps() ([]db.Chirp, error) {
 	return m.Chirps, nil
 }
 
+func (m *MockDB) GetChirp(id int) (*db.Chirp, error) {
+	for _, chirp := range m.Chirps {
+		if chirp.ID == id {
+			return &chirp, nil
+		}
+	}
+	return nil, errors.New("not found")
+}
+
 func TestCreateChirpRoute(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -168,5 +178,30 @@ func TestCreateChirpRoute(t *testing.T) {
 				t.Errorf("Expected body to be %s, got %s", test.wantResp, rw.Body.String())
 			}
 		})
+	}
+}
+
+func TestGetChirp(t *testing.T) {
+	mockDB := NewMockDB()
+	chirp := db.Chirp{ID: 1, Body: "I had something interesting for breakfast"}
+	mockDB.Chirps = []db.Chirp{chirp}
+	router := NewRouter(mockDB)
+	if router == nil {
+		t.Error("Expected router to not be nil")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/chirps/1", http.NoBody)
+	rw := httptest.NewRecorder()
+	router.ServeHTTP(rw, req)
+
+	if rw.Code != http.StatusOK {
+		t.Errorf("Expected StatusOk, got %d", rw.Code)
+	}
+	want, err := json.Marshal(chirp)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err.Error())
+	}
+	if rw.Body.String() != string(want) {
+		t.Errorf("Expected body to be %s, got %s", string(want), rw.Body.String())
 	}
 }

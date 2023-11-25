@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -70,6 +71,19 @@ func (db *DB) ListChirps() ([]Chirp, error) {
 	}
 
 	return chirps, nil
+}
+
+// GetChirp returns a single chirp.
+func (db *DB) GetChirp(id int) (*Chirp, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	chirp, ok := db.data.Chirps[id]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+
+	return &chirp, nil
 }
 
 // loadDB reads the database file into memory

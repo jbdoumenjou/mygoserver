@@ -2,14 +2,17 @@ package chirp
 
 import (
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 type ChirpStorer interface {
 	CreateChirp(body string) (db.Chirp, error)
 	ListChirps() ([]db.Chirp, error)
+	GetChirp(id int) (*db.Chirp, error)
 }
 
 type Handler struct {
@@ -56,6 +59,25 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	chirps, err := h.db.ListChirps()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, chirps)
+}
+
+// Get returns a single chirp.
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	chirps, err := h.db.GetChirp(id)
+	if err != nil {
+		// the only error we can get is not found
+		respondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
