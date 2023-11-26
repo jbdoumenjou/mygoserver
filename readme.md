@@ -9,6 +9,16 @@ Play with stateful handlers.
 
 Play with [Chi](https://go-chi.io/#/README) router.
 
+A .env file is used to store the secret use to sign the JWT token.
+This file is added to .gitignore for security reasons.
+You can create your own .env file with the following content:
+You can use ```openssl rand -base64 64``` to generate a secret key.
+
+```
+# .env
+JWT_SECRET=your-secret-key
+```
+
 
 
 

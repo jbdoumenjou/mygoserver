@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jbdoumenjou/mygoserver/internal/api/chirp"
 	"github.com/jbdoumenjou/mygoserver/internal/api/cors"
@@ -8,10 +10,13 @@ import (
 	"github.com/jbdoumenjou/mygoserver/internal/api/metrics"
 	"github.com/jbdoumenjou/mygoserver/internal/api/user"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
-	"net/http"
 )
 
-func NewRouter(db *db.DB) http.Handler {
+type ApiConfig struct {
+	JWTSecret string
+}
+
+func NewRouter(db *db.DB, config ApiConfig) http.Handler {
 	router := chi.NewRouter()
 	apiMetrics := &metrics.Metrics{}
 
@@ -38,8 +43,9 @@ func NewRouter(db *db.DB) http.Handler {
 	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
 	apiRouter.Post("/chirps", chirpHandler.Create)
 
-	userHandler := user.NewHandler(db)
+	userHandler := user.NewHandler(db, "")
 	apiRouter.Post("/users", userHandler.Create)
+	apiRouter.Put("/users", userHandler.Update)
 	apiRouter.Post("/login", userHandler.Login)
 
 	router.Mount("/api", apiRouter)

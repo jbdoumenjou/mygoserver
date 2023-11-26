@@ -2,12 +2,13 @@ package chirp
 
 import (
 	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	"github.com/jbdoumenjou/mygoserver/internal/api"
-	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jbdoumenjou/mygoserver/internal/api"
+	"github.com/jbdoumenjou/mygoserver/internal/db"
 )
 
 type ChirpStorer interface {

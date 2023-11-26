@@ -121,13 +121,49 @@ func (db *DB) CreateUser(email, password string) (User, error) {
 	return user, nil
 }
 
+// UpdateUser creates a new user and saves it to disk
+func (db *DB) UpdateUser(id int, email, password string) (User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	for _, user := range db.data.Users {
+		if user.ID == id {
+			if user.Email != email {
+				delete(db.data.Users, email)
+			}
+			user.Email = email
+			user.Password = password
+			db.data.Users[email] = user
+			if err := db.writeDB(db.data); err != nil {
+				return User{}, fmt.Errorf("write db: %w", err)
+			}
+			return user, nil
+		}
+	}
+
+	return User{}, errors.New("user not found")
+}
+
+// GetUserByEmail returns a single user.
+func (db *DB) GetUserByEmail(email string) (*User, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	user, ok := db.data.Users[email]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+
+	return &user, nil
+}
+
 // GetUser returns a single user.
-func (db *DB) GetUSer(email string) (*User, error) {
+func (db *DB) GetUser(id int) (*User, error) {
 	db.mux.RLock()
 	defer db.mux.RUnlock()
 
 	for _, user := range db.data.Users {
-		if user.Email == email {
+		if user.ID == id {
 			return &user, nil
 		}
 	}
