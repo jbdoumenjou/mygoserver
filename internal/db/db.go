@@ -9,8 +9,8 @@ import (
 )
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
+	Chirps map[int]Chirp   `json:"chirps"`
+	Users  map[string]User `json:"users"`
 }
 
 // DB is a simple file database.
@@ -30,7 +30,7 @@ func NewDB(path string) (*DB, error) {
 		}
 		structure := DBStructure{
 			Chirps: map[int]Chirp{},
-			Users:  map[int]User{},
+			Users:  map[string]User{},
 		}
 		if err := db.writeDB(structure); err != nil {
 			return nil, fmt.Errorf("write db: %w", err)
@@ -93,27 +93,46 @@ func (db *DB) GetChirp(id int) (*Chirp, error) {
 
 // User is a single user.
 type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
+	ID       int    `json:"id"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 // CreateUser creates a new user and saves it to disk
-func (db *DB) CreateUser(email string) (User, error) {
+func (db *DB) CreateUser(email, password string) (User, error) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
+	if _, ok := db.data.Users[email]; ok {
+		return User{}, errors.New("user already exists")
+	}
 
-	id := len(db.data.Chirps) + 1
+	id := len(db.data.Users) + 1
 
 	user := User{
-		ID:    len(db.data.Users) + 1,
-		Email: email,
+		ID:       id,
+		Password: password,
+		Email:    email,
 	}
-	db.data.Users[id] = user
+	db.data.Users[email] = user
 	if err := db.writeDB(db.data); err != nil {
 		return User{}, fmt.Errorf("write db: %w", err)
 	}
 
 	return user, nil
+}
+
+// GetUser returns a single user.
+func (db *DB) GetUSer(email string) (*User, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	for _, user := range db.data.Users {
+		if user.Email == email {
+			return &user, nil
+		}
+	}
+
+	return nil, errors.New("not found")
 }
 
 // loadDB reads the database file into memory

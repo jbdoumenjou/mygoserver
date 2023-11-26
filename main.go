@@ -11,6 +11,6 @@ func main() {
 		panic(err)
 	}
 
-	router := NewRouter(db, db)
+	router := NewRouter(db)
 	log.Fatal(NewWebServer(":8080", router).Start())
 }

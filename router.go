@@ -7,10 +7,11 @@ import (
 	"github.com/jbdoumenjou/mygoserver/internal/api/health"
 	"github.com/jbdoumenjou/mygoserver/internal/api/metrics"
 	"github.com/jbdoumenjou/mygoserver/internal/api/user"
+	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 )
 
-func NewRouter(chirpStorer chirp.ChirpStorer, userStorer user.UserStorer) http.Handler {
+func NewRouter(db *db.DB) http.Handler {
 	router := chi.NewRouter()
 	apiMetrics := &metrics.Metrics{}
 
@@ -32,13 +33,14 @@ func NewRouter(chirpStorer chirp.ChirpStorer, userStorer user.UserStorer) http.H
 	apiRouter.Get("/metrics", apiMetrics.TextHandler)
 	apiRouter.Get("/reset", apiMetrics.ResetHandler)
 
-	chirpHandler := chirp.NewHandler(chirpStorer)
+	chirpHandler := chirp.NewHandler(db)
 	apiRouter.Get("/chirps", chirpHandler.List)
 	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
 	apiRouter.Post("/chirps", chirpHandler.Create)
 
-	userHandler := user.NewHandler(userStorer)
+	userHandler := user.NewHandler(db)
 	apiRouter.Post("/users", userHandler.Create)
+	apiRouter.Post("/login", userHandler.Login)
 
 	router.Mount("/api", apiRouter)
 
