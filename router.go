@@ -47,6 +47,8 @@ func NewRouter(db *db.DB, config ApiConfig) http.Handler {
 	apiRouter.Post("/users", userHandler.Create)
 	apiRouter.Put("/users", userHandler.Update)
 	apiRouter.Post("/login", userHandler.Login)
+	apiRouter.Post("/refresh", userHandler.Refresh)
+	apiRouter.Post("/revoke", userHandler.Revoke)
 
 	router.Mount("/api", apiRouter)
 

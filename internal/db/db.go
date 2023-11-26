@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 type DBStructure struct {
-	Chirps map[int]Chirp   `json:"chirps"`
-	Users  map[string]User `json:"users"`
+	Chirps       map[int]Chirp        `json:"chirps"`
+	Users        map[string]User      `json:"users"`
+	RevokedToken map[string]time.Time `json:"revokedToken"`
 }
 
 // DB is a simple file database.
@@ -29,8 +31,9 @@ func NewDB(path string) (*DB, error) {
 			return nil, fmt.Errorf("stat %s: %w", path, err)
 		}
 		structure := DBStructure{
-			Chirps: map[int]Chirp{},
-			Users:  map[string]User{},
+			Chirps:       map[int]Chirp{},
+			Users:        map[string]User{},
+			RevokedToken: map[string]time.Time{},
 		}
 		if err := db.writeDB(structure); err != nil {
 			return nil, fmt.Errorf("write db: %w", err)
@@ -169,6 +172,27 @@ func (db *DB) GetUser(id int) (*User, error) {
 	}
 
 	return nil, errors.New("not found")
+}
+
+func (db *DB) RevokeToken(token string) string {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	// naive approach, we could keep the previous revoked token
+	db.data.RevokedToken[token] = time.Now().UTC()
+	if err := db.writeDB(db.data); err != nil {
+		return ""
+	}
+
+	return token
+}
+
+func (db DB) IsTokenRevoked(token string) bool {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	_, ok := db.data.RevokedToken[token]
+	return ok
 }
 
 // loadDB reads the database file into memory
