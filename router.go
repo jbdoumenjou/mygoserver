@@ -6,10 +6,11 @@ import (
 	"github.com/jbdoumenjou/mygoserver/internal/api/cors"
 	"github.com/jbdoumenjou/mygoserver/internal/api/health"
 	"github.com/jbdoumenjou/mygoserver/internal/api/metrics"
+	"github.com/jbdoumenjou/mygoserver/internal/api/user"
 	"net/http"
 )
 
-func NewRouter(chirpStorer chirp.ChirpStorer) http.Handler {
+func NewRouter(chirpStorer chirp.ChirpStorer, userStorer user.UserStorer) http.Handler {
 	router := chi.NewRouter()
 	apiMetrics := &metrics.Metrics{}
 
@@ -35,6 +36,9 @@ func NewRouter(chirpStorer chirp.ChirpStorer) http.Handler {
 	apiRouter.Get("/chirps", chirpHandler.List)
 	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
 	apiRouter.Post("/chirps", chirpHandler.Create)
+
+	userHandler := user.NewHandler(userStorer)
+	apiRouter.Post("/users", userHandler.Create)
 
 	router.Mount("/api", apiRouter)
 

@@ -3,6 +3,7 @@ package chirp
 import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"github.com/jbdoumenjou/mygoserver/internal/api"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 	"strconv"
@@ -35,34 +36,34 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		api.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if len(params.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		api.RespondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
 	cleanedChirp := cleanChirp(params.Body)
 	chirp, err := h.db.CreateChirp(cleanedChirp)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, chirp)
+	api.RespondWithJSON(w, http.StatusCreated, chirp)
 }
 
 // List returns all chirps in the database
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	chirps, err := h.db.ListChirps()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, chirps)
+	api.RespondWithJSON(w, http.StatusOK, chirps)
 }
 
 // Get returns a single chirp.
@@ -70,18 +71,18 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		api.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	chirps, err := h.db.GetChirp(id)
 	if err != nil {
 		// the only error we can get is not found
-		respondWithError(w, http.StatusNotFound, err.Error())
+		api.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, chirps)
+	api.RespondWithJSON(w, http.StatusOK, chirps)
 }
 
 func cleanChirp(body string) string {
@@ -94,20 +95,4 @@ func cleanChirp(body string) string {
 	}
 
 	return strings.Join(splitBody, " ")
-}
-
-func respondWithError(w http.ResponseWriter, code int, msg string) {
-	respondWithJSON(w, code, map[string]string{"error": msg})
-}
-
-func respondWithJSON(w http.ResponseWriter, code int, payload any) {
-	content, err := json.Marshal(payload)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(content)
 }

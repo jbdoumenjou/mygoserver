@@ -10,6 +10,7 @@ import (
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 // DB is a simple file database.
@@ -27,7 +28,11 @@ func NewDB(path string) (*DB, error) {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("stat %s: %w", path, err)
 		}
-		if err := db.writeDB(DBStructure{Chirps: map[int]Chirp{}}); err != nil {
+		structure := DBStructure{
+			Chirps: map[int]Chirp{},
+			Users:  map[int]User{},
+		}
+		if err := db.writeDB(structure); err != nil {
 			return nil, fmt.Errorf("write db: %w", err)
 		}
 	}
@@ -84,6 +89,31 @@ func (db *DB) GetChirp(id int) (*Chirp, error) {
 	}
 
 	return &chirp, nil
+}
+
+// User is a single user.
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+}
+
+// CreateUser creates a new user and saves it to disk
+func (db *DB) CreateUser(email string) (User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	id := len(db.data.Chirps) + 1
+
+	user := User{
+		ID:    len(db.data.Users) + 1,
+		Email: email,
+	}
+	db.data.Users[id] = user
+	if err := db.writeDB(db.data); err != nil {
+		return User{}, fmt.Errorf("write db: %w", err)
+	}
+
+	return user, nil
 }
 
 // loadDB reads the database file into memory
