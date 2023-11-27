@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 )
@@ -80,6 +81,26 @@ func (db *DB) ListChirps() ([]Chirp, error) {
 	for _, chirp := range db.data.Chirps {
 		chirps = append(chirps, chirp)
 	}
+
+	return chirps, nil
+}
+
+// ListChirps returns all chirps in the database
+func (db *DB) ListChirpsByAuthorID(id int) ([]Chirp, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	var chirps []Chirp
+	for _, chirp := range db.data.Chirps {
+		if chirp.AuthorID == id {
+			chirps = append(chirps, chirp)
+		}
+	}
+
+	// sorting the chirps by id in ascending order.
+	sort.Slice(chirps, func(i, j int) bool {
+		return chirps[i].ID < chirps[j].ID
+	})
 
 	return chirps, nil
 }
