@@ -15,7 +15,7 @@ import (
 
 func TestAdminMetricsRoute(t *testing.T) {
 	mockDB := NewMockDB()
-	tokenManager := token.NewManager("mysecret")
+	tokenManager := token.NewManager("mysecret", "")
 	router := NewRouter(mockDB, tokenManager)
 	if router == nil {
 		t.Error("Expected router to not be nil")
@@ -196,7 +196,7 @@ func TestCreateChirpRoute(t *testing.T) {
 		},
 	}
 	mockDB := NewMockDB()
-	tokenManager := token.NewManager("mysecret")
+	tokenManager := token.NewManager("mysecret", "")
 	accessToken, err := tokenManager.CreateAccessToken(1)
 	if err != nil {
 		t.Errorf("Expected no error, got %s", err.Error())
@@ -233,7 +233,7 @@ func TestCreateChirpRoute(t *testing.T) {
 
 func TestGetChirp(t *testing.T) {
 	mockDB := NewMockDB()
-	tokenManager := token.NewManager("mysecret")
+	tokenManager := token.NewManager("mysecret", "")
 	chirp := db.Chirp{ID: 1, Body: "I had something interesting for breakfast"}
 	mockDB.Chirps = []db.Chirp{chirp}
 	router := NewRouter(mockDB, tokenManager)

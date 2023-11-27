@@ -249,8 +249,12 @@ type UpgradeParams struct {
 }
 
 func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
+	if err := h.tokenManager.CheckAPIKey(r.Header); err != nil {
+		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
 
+	decoder := json.NewDecoder(r.Body)
 	var params UpgradeParams
 	decoder.Decode(&params)
 

@@ -17,10 +17,29 @@ const (
 
 type Manager struct {
 	jwtSecret string
+	apiKey    string
 }
 
-func NewManager(jwtSecret string) *Manager {
-	return &Manager{jwtSecret: jwtSecret}
+func NewManager(jwtSecret string, apiKey string) *Manager {
+	return &Manager{jwtSecret: jwtSecret, apiKey: apiKey}
+}
+
+func (t *Manager) CheckAPIKey(header http.Header) error {
+	authHeader := header.Get("Authorization")
+	if authHeader == "" {
+		return errors.New("missing Authorization header")
+	}
+
+	split := strings.Split(authHeader, " ")
+	if len(split) != 2 || split[0] != "ApiKey" {
+		return errors.New("invalid Authorization header")
+	}
+
+	if split[1] != t.apiKey {
+		return errors.New("invalid api key")
+	}
+
+	return nil
 }
 
 func (t *Manager) GetAccessToken(header http.Header) (*jwt.Token, error) {

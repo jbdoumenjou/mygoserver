@@ -13,10 +13,11 @@ A .env file is used to store the secret use to sign the JWT token.
 This file is added to .gitignore for security reasons.
 You can create your own .env file with the following content:
 You can use ```openssl rand -base64 64``` to generate a secret key.
-
+And an API_KEY to secure the API.
 ```
 # .env
 JWT_SECRET=your-secret-key
+API_KEY=your-api-key
 ```
 
 Please, keep in mind that the code is "experimental" as it is a playground to learn Go.
