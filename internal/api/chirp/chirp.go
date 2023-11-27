@@ -12,10 +12,14 @@ import (
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 )
 
+const (
+	SortAsc  = "asc"
+	SortDesc = "desc"
+)
+
 type ChirpStorer interface {
 	CreateChirp(body string, authorID int) (db.Chirp, error)
-	ListChirps() ([]db.Chirp, error)
-	ListChirpsByAuthorID(id int) ([]db.Chirp, error)
+	ListChirps(authorId int, sort string) ([]db.Chirp, error)
 	GetChirp(id int) (*db.Chirp, error)
 	DeleteChirp(id int)
 }
@@ -75,28 +79,33 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 // List returns all chirps in the database
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	author_id := r.URL.Query().Get("author_id")
-	if author_id == "" {
-		chirps, err := h.db.ListChirps()
+	authorID := -1
+	if author_id != "" {
+		var err error
+		authorID, err = strconv.Atoi(author_id)
 		if err != nil {
-			api.RespondWithError(w, http.StatusInternalServerError, err.Error())
+			api.RespondWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+	}
 
-		api.RespondWithJSON(w, http.StatusOK, chirps)
+	sort := r.URL.Query().Get("sort")
+	if sort == "" {
+		sort = SortAsc
+	}
+	if sort != SortAsc && sort != SortDesc {
+		api.RespondWithError(w, http.StatusBadRequest, "Invalid sort parameter")
 		return
 	}
 
-	authorID, err := strconv.Atoi(author_id)
-	if err != nil {
-		api.RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	chirps, err := h.db.ListChirpsByAuthorID(authorID)
+	chirps, err := h.db.ListChirps(authorID, sort)
 	if err != nil {
 		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	api.RespondWithJSON(w, http.StatusOK, chirps)
+	return
 }
 
 // Get returns a single chirp.

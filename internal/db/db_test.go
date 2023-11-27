@@ -53,7 +53,7 @@ func TestDB_GetChirps(t *testing.T) {
 		return
 	}
 
-	got, err := db.ListChirps()
+	got, err := db.ListChirps("", "")
 	if err != nil {
 		t.Errorf("ListChirps should not have an error %v", err)
 		return
