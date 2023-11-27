@@ -8,15 +8,20 @@ import (
 	"github.com/jbdoumenjou/mygoserver/internal/api/cors"
 	"github.com/jbdoumenjou/mygoserver/internal/api/health"
 	"github.com/jbdoumenjou/mygoserver/internal/api/metrics"
+	"github.com/jbdoumenjou/mygoserver/internal/api/token"
 	"github.com/jbdoumenjou/mygoserver/internal/api/user"
-	"github.com/jbdoumenjou/mygoserver/internal/db"
 )
 
 type ApiConfig struct {
 	JWTSecret string
 }
 
-func NewRouter(db *db.DB, config ApiConfig) http.Handler {
+type Storer interface {
+	chirp.ChirpStorer
+	user.UserStorer
+}
+
+func NewRouter(db Storer, tokenManager *token.Manager) http.Handler {
 	router := chi.NewRouter()
 	apiMetrics := &metrics.Metrics{}
 
@@ -38,12 +43,12 @@ func NewRouter(db *db.DB, config ApiConfig) http.Handler {
 	apiRouter.Get("/metrics", apiMetrics.TextHandler)
 	apiRouter.Get("/reset", apiMetrics.ResetHandler)
 
-	chirpHandler := chirp.NewHandler(db)
+	chirpHandler := chirp.NewHandler(db, tokenManager)
 	apiRouter.Get("/chirps", chirpHandler.List)
 	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
 	apiRouter.Post("/chirps", chirpHandler.Create)
 
-	userHandler := user.NewHandler(db, "")
+	userHandler := user.NewHandler(db, tokenManager)
 	apiRouter.Post("/users", userHandler.Create)
 	apiRouter.Put("/users", userHandler.Update)
 	apiRouter.Post("/login", userHandler.Login)

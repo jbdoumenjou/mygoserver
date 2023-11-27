@@ -8,22 +8,24 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jbdoumenjou/mygoserver/internal/api"
+	"github.com/jbdoumenjou/mygoserver/internal/api/token"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 )
 
 type ChirpStorer interface {
-	CreateChirp(body string) (db.Chirp, error)
+	CreateChirp(body string, authorID int) (db.Chirp, error)
 	ListChirps() ([]db.Chirp, error)
 	GetChirp(id int) (*db.Chirp, error)
 }
 
 type Handler struct {
-	db ChirpStorer
+	db           ChirpStorer
+	tokenManager *token.Manager
 }
 
 // NewHandler returns a new handler.
-func NewHandler(db ChirpStorer) *Handler {
-	return &Handler{db: db}
+func NewHandler(db ChirpStorer, tokenManager *token.Manager) *Handler {
+	return &Handler{db: db, tokenManager: tokenManager}
 }
 
 type ChirpParameters struct {
@@ -32,11 +34,23 @@ type ChirpParameters struct {
 
 // Create creates a new chirp.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	// first check the access token. If it's not valid, we can't create a chirp.
+	token, err := h.tokenManager.GetAccessToken(r.Header)
+	if err != nil {
+		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	userID, err := h.tokenManager.GetUserID(token)
+	if err != nil {
+		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := ChirpParameters{}
 
-	err := decoder.Decode(&params)
-	if err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		api.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -47,7 +61,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanedChirp := cleanChirp(params.Body)
-	chirp, err := h.db.CreateChirp(cleanedChirp)
+	chirp, err := h.db.CreateChirp(cleanedChirp, userID)
 	if err != nil {
 		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -76,14 +90,14 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chirps, err := h.db.GetChirp(id)
+	chirp, err := h.db.GetChirp(id)
 	if err != nil {
 		// the only error we can get is not found
 		api.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	api.RespondWithJSON(w, http.StatusOK, chirps)
+	api.RespondWithJSON(w, http.StatusOK, chirp)
 }
 
 func cleanChirp(body string) string {

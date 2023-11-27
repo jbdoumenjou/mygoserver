@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/jbdoumenjou/mygoserver/internal/api/token"
+
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"github.com/joho/godotenv"
 )
@@ -19,6 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	router := NewRouter(db, ApiConfig{JWTSecret: jwtSecret})
+	tokenManager := token.NewManager(jwtSecret)
+	router := NewRouter(db, tokenManager)
 	log.Fatal(NewWebServer(":8080", router).Start())
 }

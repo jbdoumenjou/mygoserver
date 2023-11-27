@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jbdoumenjou/mygoserver/internal/api"
+	"github.com/jbdoumenjou/mygoserver/internal/api/token"
 	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,12 +21,12 @@ type UserStorer interface {
 }
 
 type Handler struct {
-	db        UserStorer
-	jwtSecret string
+	db           UserStorer
+	tokenManager *token.Manager
 }
 
-func NewHandler(db UserStorer, jwtSecret string) *Handler {
-	return &Handler{db: db, jwtSecret: jwtSecret}
+func NewHandler(db UserStorer, tokenManager *token.Manager) *Handler {
+	return &Handler{db: db, tokenManager: tokenManager}
 }
 
 type Parameters struct {
@@ -72,42 +70,13 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		api.RespondWithError(w, http.StatusUnauthorized, "missing Authorization header")
-		return
-	}
-	split := strings.Split(authHeader, " ")
-	if len(split) != 2 {
-		api.RespondWithError(w, http.StatusUnauthorized, "invalid Authorization header")
-		return
-	}
-	tokenString := split[1]
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(h.jwtSecret), nil
-	})
+	token, err := h.tokenManager.GetAccessToken(r.Header)
 	if err != nil {
 		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	issuer, err := token.Claims.GetIssuer()
-	if err != nil {
-		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-	if issuer != "chirpy-access" {
-		api.RespondWithError(w, http.StatusUnauthorized, "invalid token issuer")
-		return
-	}
-
-	subject, err := token.Claims.GetSubject()
-	if err != nil {
-		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	userID, err := strconv.Atoi(subject)
+	userID, err := h.tokenManager.GetUserID(token)
 	if err != nil {
 		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -177,16 +146,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ok we can create a jwt accessToken
+	// ok we can create a token accessToken
 	// access token
-	accessToken, err := h.createAccessToken(user.ID)
+	accessToken, err := h.tokenManager.CreateAccessToken(user.ID)
 	if err != nil {
 		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// refresh token
-	refreshToken, err := h.createRefreshToken(user.ID)
+	refreshToken, err := h.tokenManager.CreateRefreshToken(user.ID)
 	if err != nil {
 		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -207,32 +176,9 @@ type RefreshResp struct {
 }
 
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		api.RespondWithError(w, http.StatusUnauthorized, "missing Authorization header")
-		return
-	}
-	split := strings.Split(authHeader, " ")
-	if len(split) != 2 {
-		api.RespondWithError(w, http.StatusUnauthorized, "invalid Authorization header")
-		return
-	}
-	tokenString := split[1]
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(h.jwtSecret), nil
-	})
+	token, err := h.tokenManager.GetRefreshToken(r.Header)
 	if err != nil {
 		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	issuer, err := token.Claims.GetIssuer()
-	if err != nil {
-		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-	if issuer != "chirpy-refresh" {
-		api.RespondWithError(w, http.StatusUnauthorized, "invalid token issuer")
 		return
 	}
 
@@ -248,14 +194,14 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if revoked := h.db.IsTokenRevoked(tokenString); revoked {
+	if revoked := h.db.IsTokenRevoked(token.Raw); revoked {
 		api.RespondWithError(w, http.StatusUnauthorized, "token revoked")
 		return
 	}
 
-	// ok we can refresh a jwt accessToken
+	// ok we can refresh a token accessToken
 	// access token for 1 hour
-	accessToken, err := h.createAccessToken(userId)
+	accessToken, err := h.tokenManager.CreateAccessToken(userId)
 	if err != nil {
 		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -269,20 +215,7 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		api.RespondWithError(w, http.StatusUnauthorized, "missing Authorization header")
-		return
-	}
-	split := strings.Split(authHeader, " ")
-	if len(split) != 2 {
-		api.RespondWithError(w, http.StatusUnauthorized, "invalid Authorization header")
-		return
-	}
-	tokenString := split[1]
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(h.jwtSecret), nil
-	})
+	token, err := h.tokenManager.GetRefreshToken(r.Header)
 	if err != nil {
 		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -298,29 +231,7 @@ func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.db.RevokeToken(tokenString)
+	h.db.RevokeToken(token.Raw)
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func (h *Handler) createAccessToken(userID int) (string, error) {
-	return h.createToken(userID, "chirpy-access", time.Hour)
-}
-
-func (h *Handler) createRefreshToken(userID int) (string, error) {
-	return h.createToken(userID, "chirpy-refresh", 60*24*time.Hour)
-}
-
-func (h *Handler) createToken(userID int, issuer string, expiresAt time.Duration) (string, error) {
-	now := time.Now().UTC()
-
-	claims := jwt.RegisteredClaims{
-		Issuer:    issuer,
-		Subject:   strconv.Itoa(userID),
-		ExpiresAt: jwt.NewNumericDate(now.Add(expiresAt)),
-		IssuedAt:  jwt.NewNumericDate(now),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString([]byte(h.jwtSecret))
 }

@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/jbdoumenjou/mygoserver/internal/db"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/jbdoumenjou/mygoserver/internal/api/token"
+
+	"github.com/jbdoumenjou/mygoserver/internal/db"
 )
 
 func TestAdminMetricsRoute(t *testing.T) {
-	router := NewRouter(nil)
+	mockDB := NewMockDB()
+	tokenManager := token.NewManager("mysecret")
+	router := NewRouter(mockDB, tokenManager)
 	if router == nil {
 		t.Error("Expected router to not be nil")
 	}
@@ -88,13 +93,42 @@ type MockDB struct {
 	Chirps []db.Chirp
 }
 
+func (m *MockDB) CreateUser(username, password string) (db.User, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) UpdateUser(id int, email, password string) (db.User, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) GetUserByEmail(email string) (*db.User, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) GetUser(id int) (*db.User, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) RevokeToken(token string) string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) IsTokenRevoked(token string) bool {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewMockDB() *MockDB {
 	return &MockDB{Chirps: []db.Chirp{}}
 }
 
-func (m *MockDB) CreateChirp(body string) (db.Chirp, error) {
-	// just need 1 as id in this test
-	chirp := db.Chirp{ID: 1, Body: body}
+func (m *MockDB) CreateChirp(body string, authorID int) (db.Chirp, error) {
+	chirp := db.Chirp{ID: 1, AuthorID: 1, Body: body}
 	m.Chirps = append(m.Chirps, chirp)
 	return chirp, nil
 }
@@ -124,7 +158,7 @@ func TestCreateChirpRoute(t *testing.T) {
 			body: map[string]string{
 				"body": "I had something interesting for breakfast",
 			},
-			wantResp:       `{"id":1,"body":"I had something interesting for breakfast"}`,
+			wantResp:       `{"id":1,"author_id":1,"body":"I had something interesting for breakfast"}`,
 			wantStatusCode: http.StatusCreated,
 		},
 		{
@@ -140,7 +174,7 @@ func TestCreateChirpRoute(t *testing.T) {
 				"body":  "I had something interesting for breakfast",
 				"extra": "should be ignored",
 			},
-			wantResp:       `{"id":1,"body":"I had something interesting for breakfast"}`,
+			wantResp:       `{"id":1,"author_id":1,"body":"I had something interesting for breakfast"}`,
 			wantStatusCode: http.StatusCreated,
 		},
 		{
@@ -148,12 +182,18 @@ func TestCreateChirpRoute(t *testing.T) {
 			body: map[string]string{
 				"body": "I really need a kerfuffle to go to bed sooner, Fornax !",
 			},
-			wantResp:       `{"id":1,"body":"I really need a **** to go to bed sooner, **** !"}`,
+			wantResp:       `{"id":1,"author_id":1,"body":"I really need a **** to go to bed sooner, **** !"}`,
 			wantStatusCode: http.StatusCreated,
 		},
 	}
 	mockDB := NewMockDB()
-	router := NewRouter(mockDB)
+	tokenManager := token.NewManager("mysecret")
+	accessToken, err := tokenManager.CreateAccessToken(1)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err.Error())
+	}
+	router := NewRouter(mockDB, tokenManager)
+
 	if router == nil {
 		t.Error("Expected router to not be nil")
 	}
@@ -167,6 +207,7 @@ func TestCreateChirpRoute(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(http.MethodPost, "/api/chirps", bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+accessToken)
 			rw := httptest.NewRecorder()
 			router.ServeHTTP(rw, req)
 
@@ -183,9 +224,10 @@ func TestCreateChirpRoute(t *testing.T) {
 
 func TestGetChirp(t *testing.T) {
 	mockDB := NewMockDB()
+	tokenManager := token.NewManager("mysecret")
 	chirp := db.Chirp{ID: 1, Body: "I had something interesting for breakfast"}
 	mockDB.Chirps = []db.Chirp{chirp}
-	router := NewRouter(mockDB)
+	router := NewRouter(mockDB, tokenManager)
 	if router == nil {
 		t.Error("Expected router to not be nil")
 	}

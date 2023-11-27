@@ -49,17 +49,18 @@ func NewDB(path string) (*DB, error) {
 
 // Chirp is a single chirp.
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID       int    `json:"id"`
+	AuthorID int    `json:"author_id"`
+	Body     string `json:"body"`
 }
 
 // CreateChirp creates a new chirp and saves it to disk
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, authorID int) (Chirp, error) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
 
 	id := len(db.data.Chirps) + 1
-	chirp := Chirp{ID: id, Body: body}
+	chirp := Chirp{ID: id, Body: body, AuthorID: authorID}
 	db.data.Chirps[id] = chirp
 	if err := db.writeDB(db.data); err != nil {
 		return Chirp{}, fmt.Errorf("write db: %w", err)
@@ -187,7 +188,7 @@ func (db *DB) RevokeToken(token string) string {
 	return token
 }
 
-func (db DB) IsTokenRevoked(token string) bool {
+func (db *DB) IsTokenRevoked(token string) bool {
 	db.mux.RLock()
 	defer db.mux.RUnlock()
 

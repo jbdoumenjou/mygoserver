@@ -17,13 +17,13 @@ func TestDB_CreateChirp(t *testing.T) {
 	}
 	defer os.Remove(dbPath)
 
-	got, err := db.CreateChirp("I had something interesting for breakfast")
+	got, err := db.CreateChirp("I had something interesting for breakfast", 1)
 	if err != nil {
 		t.Errorf("CreateChirp should not have an error %v", err)
 		return
 	}
 
-	want := Chirp{ID: 0, Body: "I had something interesting for breakfast"}
+	want := Chirp{ID: 1, AuthorID: 1, Body: "I had something interesting for breakfast"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CreateChirp() got = %v, want %v", got, want)
 	}
@@ -39,7 +39,7 @@ func TestDB_CreateChirp(t *testing.T) {
 		t.Errorf("unmarshal db: %v", err)
 	}
 
-	if !reflect.DeepEqual(data.Chirps, map[int]Chirp{0: want}) {
+	if !reflect.DeepEqual(data.Chirps, map[int]Chirp{1: want}) {
 		t.Errorf("CreateChirp() got = %v, want %v", data, want)
 	}
 }
