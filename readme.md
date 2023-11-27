@@ -19,6 +19,8 @@ You can use ```openssl rand -base64 64``` to generate a secret key.
 JWT_SECRET=your-secret-key
 ```
 
+Please, keep in mind that the code is "experimental" as it is a playground to learn Go.
+We should have more tests, logs, and better error handling.
 
 
 

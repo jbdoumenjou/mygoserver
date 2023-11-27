@@ -95,6 +95,16 @@ func (db *DB) GetChirp(id int) (*Chirp, error) {
 	return &chirp, nil
 }
 
+// DeleteChirp returns a single chirp.
+func (db *DB) DeleteChirp(id int) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	if _, ok := db.data.Chirps[id]; ok {
+		delete(db.data.Chirps, id)
+	}
+}
+
 // User is a single user.
 type User struct {
 	ID       int    `json:"id"`

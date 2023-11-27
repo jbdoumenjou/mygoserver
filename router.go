@@ -46,6 +46,7 @@ func NewRouter(db Storer, tokenManager *token.Manager) http.Handler {
 	chirpHandler := chirp.NewHandler(db, tokenManager)
 	apiRouter.Get("/chirps", chirpHandler.List)
 	apiRouter.Get("/chirps/{id}", chirpHandler.Get)
+	apiRouter.Delete("/chirps/{id}", chirpHandler.Delete)
 	apiRouter.Post("/chirps", chirpHandler.Create)
 
 	userHandler := user.NewHandler(db, tokenManager)

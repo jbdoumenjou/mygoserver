@@ -16,6 +16,7 @@ type ChirpStorer interface {
 	CreateChirp(body string, authorID int) (db.Chirp, error)
 	ListChirps() ([]db.Chirp, error)
 	GetChirp(id int) (*db.Chirp, error)
+	DeleteChirp(id int)
 }
 
 type Handler struct {
@@ -96,6 +97,43 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		api.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
+	api.RespondWithJSON(w, http.StatusOK, chirp)
+}
+
+// Delete deletes a owned chirp.
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	accessToken, err := h.tokenManager.GetAccessToken(r.Header)
+	if err != nil {
+		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		api.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	chirp, err := h.db.GetChirp(id)
+	if err != nil {
+		// the only error we can get is not found
+		api.RespondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	userID, err := h.tokenManager.GetUserID(accessToken)
+	if err != nil {
+		api.RespondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	if chirp.AuthorID != userID {
+		api.RespondWithError(w, http.StatusForbidden, "You can only delete your own chirps")
+		return
+	}
+	h.db.DeleteChirp(id)
 
 	api.RespondWithJSON(w, http.StatusOK, chirp)
 }
