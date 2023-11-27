@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -93,6 +92,16 @@ type MockDB struct {
 	Chirps []db.Chirp
 }
 
+func (m *MockDB) UpgradeUser(id int) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockDB) DeleteChirp(id int) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockDB) CreateUser(username, password string) (db.User, error) {
 	//TODO implement me
 	panic("implement me")
@@ -143,7 +152,7 @@ func (m *MockDB) GetChirp(id int) (*db.Chirp, error) {
 			return &chirp, nil
 		}
 	}
-	return nil, errors.New("not found")
+	return nil, db.ErrNotFound
 }
 
 func TestCreateChirpRoute(t *testing.T) {

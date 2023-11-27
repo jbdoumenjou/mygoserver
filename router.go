@@ -55,6 +55,7 @@ func NewRouter(db Storer, tokenManager *token.Manager) http.Handler {
 	apiRouter.Post("/login", userHandler.Login)
 	apiRouter.Post("/refresh", userHandler.Refresh)
 	apiRouter.Post("/revoke", userHandler.Revoke)
+	apiRouter.Post("/polka/webhooks", userHandler.Upgrade)
 
 	router.Mount("/api", apiRouter)
 

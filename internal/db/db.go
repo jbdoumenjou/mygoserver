@@ -22,6 +22,8 @@ type DB struct {
 	mux  *sync.RWMutex
 }
 
+var ErrNotFound = errors.New("not found")
+
 // NewDB creates a new database connection
 // and creates the database file if it doesn't exist
 func NewDB(path string) (*DB, error) {
@@ -89,7 +91,7 @@ func (db *DB) GetChirp(id int) (*Chirp, error) {
 
 	chirp, ok := db.data.Chirps[id]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, ErrNotFound
 	}
 
 	return &chirp, nil
@@ -107,9 +109,10 @@ func (db *DB) DeleteChirp(id int) {
 
 // User is a single user.
 type User struct {
-	ID       int    `json:"id"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	ID          int    `json:"id"`
+	Password    string `json:"password"`
+	Email       string `json:"email"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 // CreateUser creates a new user and saves it to disk
@@ -158,6 +161,25 @@ func (db *DB) UpdateUser(id int, email, password string) (User, error) {
 	return User{}, errors.New("user not found")
 }
 
+// CreateUser creates a new user and saves it to disk
+func (db *DB) UpgradeUser(id int) error {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	for email, user := range db.data.Users {
+		if user.ID == id {
+			user.IsChirpyRed = true
+			db.data.Users[email] = user
+			if err := db.writeDB(db.data); err != nil {
+				return fmt.Errorf("write db: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return ErrNotFound
+}
+
 // GetUserByEmail returns a single user.
 func (db *DB) GetUserByEmail(email string) (*User, error) {
 	db.mux.RLock()
@@ -165,7 +187,7 @@ func (db *DB) GetUserByEmail(email string) (*User, error) {
 
 	user, ok := db.data.Users[email]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, ErrNotFound
 	}
 
 	return &user, nil
@@ -182,7 +204,7 @@ func (db *DB) GetUser(id int) (*User, error) {
 		}
 	}
 
-	return nil, errors.New("not found")
+	return nil, ErrNotFound
 }
 
 func (db *DB) RevokeToken(token string) string {

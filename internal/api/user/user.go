@@ -2,6 +2,7 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -18,6 +19,7 @@ type UserStorer interface {
 	GetUser(id int) (*db.User, error)
 	RevokeToken(token string) string
 	IsTokenRevoked(token string) bool
+	UpgradeUser(id int) error
 }
 
 type Handler struct {
@@ -35,8 +37,9 @@ type Parameters struct {
 }
 
 type UserResponse struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
+	ID          int    `json:"id"`
+	Email       string `json:"email"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +124,7 @@ type UserLoginResponse struct {
 	Email        string `json:"email"`
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
+	ISChirpyRed  bool   `json:"is_chirpy_red"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +170,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Token:        accessToken,
 		RefreshToken: refreshToken,
+		ISChirpyRed:  user.IsChirpyRed,
 	}
 
 	api.RespondWithJSON(w, http.StatusOK, resp)
@@ -233,5 +238,36 @@ func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 
 	h.db.RevokeToken(token.Raw)
 
+	w.WriteHeader(http.StatusOK)
+}
+
+type UpgradeParams struct {
+	Event string `json:"event"`
+	Data  struct {
+		UserID int `json:"user_id"`
+	} `json:"data"`
+}
+
+func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+
+	var params UpgradeParams
+	decoder.Decode(&params)
+
+	if params.Event != "user.upgraded" {
+		// nothing to do
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if err := h.db.UpgradeUser(params.Data.UserID); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			api.RespondWithError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		api.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
